@@ -2,15 +2,20 @@ import os
 import openai
 import json
 from IPython.core.magic import register_cell_magic
+from IPython.display import display, Markdown
 
 openai.api_key = os.environ.get('OPENAI_API_KEY')
 
-# Dictionary to store chat sessions
-chat_sessions = {}
+default_messages = [{"role": "system", "content": "You are ChatGPT, a large language model trained by OpenAI."}]
+messages = default_messages.copy()
+model = "gpt-3.5-turbo"
+max_tokens=2048
+temperature=0.5
+n=1
 
 @register_cell_magic
 def chatgpt(line, cell):
-    global chat_sessions
+    global messages, model, max_tokens, temperature, n
     
     # Parse the input line for parameters
     params = line.split()
@@ -19,40 +24,45 @@ def chatgpt(line, cell):
     session_id = None
     for param in params:
         if param.startswith("session_id="):
-            session_id = param[10:]
+            session_id = param[11:]
             break
-    
+        if param.startswith("engine="):
+            engine = param[7:]
+            break
+        if param.startswith("max_tokens="):
+            max_tokens = int(param[11:])
+            break
+        if param.startswith("temperature="):
+            temperature = float(param[12:])
+            break
+        if param.startswith("n="):
+            n = int(param[2:])
+            break
+        if param.startswith("reset"):
+            messages = default_messages.copy()
+
     # Prepare API call
-    prompt = cell.strip()
-    if session_id is not None and session_id in chat_sessions:
-        # Resume the chat session if it exists
-        chat_log = chat_sessions[session_id]
-        prompt = f"{chat_log}\n\n{prompt}"
-    else:
-        # Start a new chat session
-        chat_log = ""
-    
+    messages.append({"role": "user", "content": cell.strip()})
+
     # Call the OpenAI API
-    response = openai.Completion.create(
-        engine="text-davinci-002",
-        prompt=prompt,
-        max_tokens=150,
-        n=1,
+    response = openai.ChatCompletion.create(
+        model=model,
+        messages=messages,
+        max_tokens=max_tokens,
+        n=n,
         stop=None,
-        temperature=0.5,
+        temperature=temperature,
     )
-    
+
     # Extract the generated text
-    generated_text = response.choices[0].text.strip()
-    
-    # Update chat_log
-    chat_log += f"\nUser: {prompt}\nChatGPT: {generated_text}"
-    
-    if session_id is not None:
-        chat_sessions[session_id] = chat_log
-    
+    generated_text = response.choices[0].message['content'].strip()
+
+    # update chat log
+    messages.append({"role": "assistant", "content": generated_text})
+
     # Return the generated text
-    return generated_text
+    display(Markdown(f'> **User:** {cell.strip()}\n\n **ChatGPT:** {generated_text}'))  # Render as Markdown
+    return None  # Return None to prevent displaying the raw output
 
 def load_ipython_extension(ipython):
     ipython.register_magic_function(chatgpt, magic_kind='cell')
