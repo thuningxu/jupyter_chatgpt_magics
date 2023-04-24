@@ -2,7 +2,7 @@ This is a Jupyter Notebook extension to interact with ChatGPT, created with the 
 
 **Install:**
 ```
-pip install -e git://github.com/thuningxu/jupyter_chatgpt_magics.git
+pip install -U git+https://github.com/thuningxu/jupyter_chatgpt_magics.git/
 ```
 
 **Usage:**
